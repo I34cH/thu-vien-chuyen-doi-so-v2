@@ -1,0 +1,127 @@
+%% ERD v2 (đã cập nhật theo bản cài đặt, chặng 6).
+%% Dùng để: mô tả cấu trúc CSDL thu_vien_v2 sau khi làm lại từ v1.
+%% Gồm 6 bảng của v1 (giữ cột như v1) và 5 bảng mới:
+%%   luot_doc: mỗi lần đọc bản mềm (nguoi_dung_id NULL nếu là khách).
+%%   tai_lieu_tuong_tu: cặp tư liệu và điểm cosine TF-IDF do pipeline tính (top 10 mỗi tư liệu).
+%%   chu_de: 12 chủ đề KMeans trên TF-IDF tiêu đề; thủ thư sửa nhãn ở trang Quản lý. tai_lieu.chu_de_id trỏ tới đây.
+%%   cum_tu: từ vựng tiêu đề (cụm 1 đến 4 âm tiết đã bỏ dấu) cho sửa lỗi gõ; không có khóa ngoại.
+%%   chu_de_nhan_tay (migration 0004): nhãn thủ thư sửa tay, khóa = chữ ký cụm (chu_de.khoa), giữ qua pipeline.reset;
+%%   không có khóa ngoại (chu_de bị gom lại mỗi lần chạy pipeline, nhãn tay áp lại theo chữ ký).
+%% Cột mới ở bảng cũ: tai_lieu.chu_de_id; log_tim_kiem.tu_khoa_quy_ve (dạng chuẩn sau khi gộp lỗi gõ, trigger log_quy_ve tự điền).
+%% ma_van_de.ten cho phép NULL và nhập giải nghĩa sau (chặng 1 đến 4).
+%% Quan hệ ký hiệu: || một-một bắt buộc, |o không bắt buộc, o{ nhiều.
+erDiagram
+    nguoi_dung ||--o{ luot_muon : "đăng ký"
+    nguoi_dung |o--o{ log_tim_kiem : "tìm (NULL nếu khách)"
+    nguoi_dung |o--o{ luot_doc : "đọc (NULL nếu khách)"
+    tai_lieu ||--o{ ban_sao : "có"
+    ban_sao |o--o{ luot_muon : "được gán khi duyệt"
+    tai_lieu ||--o{ luot_muon : "yêu cầu"
+    tai_lieu |o--o{ log_tim_kiem : "được chọn"
+    tai_lieu ||--o{ luot_doc : "được đọc"
+    tai_lieu ||--o{ tai_lieu_tuong_tu : "có tương tự"
+    tai_lieu ||--o{ tai_lieu_tuong_tu : "là tương tự của"
+    ma_van_de |o--o{ tai_lieu : "phân loại"
+    chu_de |o--o{ tai_lieu : "gom nhóm theo TF-IDF (ON DELETE SET NULL)"
+
+    nguoi_dung {
+        int id PK
+        varchar ten_dang_nhap UK
+        varchar mat_khau_hash
+        varchar ho_ten
+        varchar vai_tro "sinh_vien|giang_vien|thu_thu|admin"
+        bool du_lieu_mau
+    }
+    tai_lieu {
+        int id PK
+        varchar ky_hieu UK
+        varchar loai_hinh "luan_an|luan_van|khoa_luan|bao_cao_kh|ky_yeu|sach|sach_ha_noi|tu_sach_tang"
+        text tieu_de
+        varchar tac_gia
+        varchar gvhd
+        varchar co_quan
+        varchar nxb
+        int nam
+        varchar nam_goc
+        varchar ma_van_de FK
+        int chu_de_id FK "NULL nếu chưa gom chủ đề"
+        varchar khoa_hoc
+        text ghi_chu
+        bool khong_co_tl
+        bool co_ban_mem
+        varchar muc_truy_cap "cong_khai|noi_bo|NULL"
+        varchar duong_dan_ban_mem
+        tsvector tsv "unaccent(tieu_de, tac_gia)"
+        varchar sheet_goc
+        int dong_goc
+    }
+    ban_sao {
+        int id PK
+        int tai_lieu_id FK
+        varchar ma_ban_sao UK
+        varchar trang_thai "con|dang_muon|mat"
+        bool du_lieu_mau
+    }
+    luot_muon {
+        int id PK
+        int nguoi_dung_id FK
+        int tai_lieu_id FK
+        int ban_sao_id FK "NULL khi chờ duyệt"
+        varchar trang_thai "cho_duyet|dang_muon|da_tra|tu_choi"
+        timestamptz ngay_dang_ky
+        date ngay_muon
+        date han_tra
+        date ngay_tra
+        bool du_lieu_mau
+    }
+    log_tim_kiem {
+        bigint id PK
+        text tu_khoa
+        text tu_khoa_chuan "lower(unaccent(trim))"
+        text tu_khoa_quy_ve "dạng chuẩn sau khi gộp lỗi gõ (trigger log_quy_ve)"
+        int so_ket_qua
+        int tai_lieu_chon_id FK "NULL nếu không bấm"
+        timestamptz thoi_diem
+        int nguoi_dung_id FK "NULL nếu khách"
+        varchar ma_phien
+        bool du_lieu_mau
+    }
+    ma_van_de {
+        varchar ma PK
+        varchar ten "NULL cho đến khi có giải nghĩa"
+    }
+    luot_doc {
+        bigint id PK
+        int tai_lieu_id FK
+        int nguoi_dung_id FK "NULL nếu khách"
+        varchar ma_phien
+        timestamptz thoi_diem
+        bool du_lieu_mau
+    }
+    tai_lieu_tuong_tu {
+        int tai_lieu_id PK, FK
+        int tai_lieu_lien_quan_id PK, FK
+        float diem "độ giống TF-IDF"
+    }
+    chu_de {
+        int id PK
+        varchar nhan "nhãn đang dùng (tự động hoặc sửa tay)"
+        text_array tu_khoa_noi_bat
+        varchar nhan_tu_dong "nhãn pipeline sinh"
+        text khoa "chữ ký cụm: 5 từ nổi bật đã sắp xếp"
+        bool da_sua_tay
+    }
+    chu_de_nhan_tay {
+        text khoa PK "chữ ký cụm"
+        text_array tu_khoa "để khớp gần đúng khi cụm đổi"
+        varchar nhan
+        timestamptz cap_nhat
+    }
+    cum_tu {
+        text cum PK "cụm đã bỏ dấu"
+        smallint so_am_tiet
+        smallint do_dai
+        int so_tai_lieu
+        text hien_thi "dạng có dấu phổ biến nhất"
+        bool la_tu_ghep
+    }

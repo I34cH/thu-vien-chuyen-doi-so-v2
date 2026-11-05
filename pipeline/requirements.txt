@@ -1,0 +1,11 @@
+# Cài vào cùng venv với backend: backend/.venv/Scripts/python -m pip install -r pipeline/requirements.txt
+pandas>=2.2
+openpyxl>=3.1
+numpy>=1.26
+Faker>=25
+matplotlib>=3.8
+bcrypt>=4.2,<6
+# Chặng 4: TF-IDF/KMeans và tách từ tiếng Việt (đã thử: scikit-learn 1.9.1, pyvi 0.1.1 trên Python 3.13).
+# pyvi kéo theo sklearn-crfsuite + python-crfsuite (~31 MB); scikit-learn kéo theo scipy (~160 MB cả hai).
+scikit-learn>=1.5
+pyvi==0.1.1

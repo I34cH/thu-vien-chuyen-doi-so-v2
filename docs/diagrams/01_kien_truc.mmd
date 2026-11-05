@@ -1,0 +1,66 @@
+%% Sơ đồ kiến trúc hệ thống v2 (đã cập nhật theo bản cài đặt, chặng 6).
+%% Dùng để: cho thấy các lớp (trình duyệt React, API FastAPI, PostgreSQL) và khối pipeline dữ liệu
+%% (ETL Excel, tách từ tiếng Việt pyvi, TF-IDF + KMeans bằng scikit-learn, sinh dữ liệu mô phỏng) ghi vào cùng CSDL,
+%% cùng thư mục lưu bản mềm PDF. Mũi tên là chiều gọi/ghi dữ liệu.
+flowchart LR
+    subgraph TRINH_DUYET["Trình duyệt"]
+        SPA["React 18 SPA (Vite, Tailwind, TanStack Query, ECharts, d3-cloud)"]
+        P1["Tra cứu, gợi ý, chi tiết tư liệu"]
+        P2["Tài khoản và mượn"]
+        P3["Quản lý (thủ thư): lượt mượn, số hóa, mã vấn đề, chủ đề"]
+        P4["Dashboard: KPI, word cloud, top từ khóa, theo ngày, ThemeRiver, đồ thị mượn cùng nhau, nên số hóa"]
+        SPA --- P1
+        SPA --- P2
+        SPA --- P3
+        SPA --- P4
+    end
+
+    subgraph BACKEND["Backend FastAPI (prefix /api, Vite proxy từ cổng 5173 sang 8000)"]
+        R_AUTH["Router xác thực: đăng nhập, đăng xuất, phiên (JWT trong cookie httpOnly)"]
+        R_TL["Router tra cứu: tìm kiếm có gợi ý sửa lỗi gõ, gợi ý, chi tiết, tư liệu tương tự, đọc bản mềm"]
+        R_MUON["Router mượn: đăng ký, xem lượt mượn của tôi"]
+        R_QL["Router quản lý: duyệt, từ chối, trả, tải bản mềm, mã vấn đề, nhãn chủ đề"]
+        R_TK["Router thống kê: KPI, từ khóa, theo ngày, nên số hóa (điểm lan tỏa), chủ đề theo thời gian, mượn cùng nhau"]
+        DEP["Phụ thuộc yeu_cau_vai_tro(...) trên mọi route"]
+        ORM["SQLAlchemy 2 (ORM, text() có tham số) + Alembic (migration 0001 đến 0003)"]
+        R_AUTH --- DEP
+        R_TL --- DEP
+        R_MUON --- DEP
+        R_QL --- DEP
+        R_TK --- DEP
+        DEP --- ORM
+    end
+
+    subgraph CSDL["PostgreSQL 18 (CSDL thu_vien_v2)"]
+        EXT["Extension unaccent, pg_trgm; hàm tim_tai_lieu, goi_y_sua_cum; trigger log_quy_ve"]
+        TBL["Bảng: tai_lieu, ma_van_de, ban_sao, nguoi_dung, luot_muon, log_tim_kiem, luot_doc, tai_lieu_tuong_tu, chu_de, cum_tu"]
+        EXT --- TBL
+    end
+
+    subgraph PIPELINE["Pipeline dữ liệu (python -m pipeline.lệnh, chạy độc lập với web)"]
+        ETL["ETL Excel (pandas, openpyxl)"]
+        TACH["Tách từ (pyvi) và từ vựng cum_tu"]
+        TFIDF["TF-IDF + KMeans (scikit-learn): tư liệu tương tự và 12 chủ đề"]
+        SIM["Sinh dữ liệu mô phỏng (Faker, numpy, seed 42)"]
+        RESET["pipeline.reset: chạy tuần tự các bước trên"]
+    end
+
+    EXCEL[("data/ Danh mục Excel (chỉ đọc)")]
+    FILES[("Thư mục bản mềm PDF (backend/storage/ban_mem)")]
+
+    SPA -- "HTTP JSON, gọi /api" --> BACKEND
+    ORM -- "psycopg 3, truy vấn có tham số" --> CSDL
+    R_QL -- "ghi tệp PDF tải lên" --> FILES
+    R_TL -- "đọc tệp PDF khi xem bản mềm" --> FILES
+
+    EXCEL -- "đọc" --> ETL
+    ETL -- "nạp tư liệu, bản sao, mã vấn đề" --> CSDL
+    CSDL -- "đọc tiêu đề" --> TACH
+    TACH -- "ghi cum_tu (từ vựng sửa lỗi gõ)" --> CSDL
+    TACH -- "tiêu đề đã tách từ" --> TFIDF
+    TFIDF -- "ghi tai_lieu_tuong_tu, chu_de, tai_lieu.chu_de_id" --> CSDL
+    SIM -- "nạp người dùng, log, lượt mượn, lượt đọc (sở thích theo chủ đề)" --> CSDL
+    RESET -.-> ETL
+    RESET -.-> TACH
+    RESET -.-> TFIDF
+    RESET -.-> SIM

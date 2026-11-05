@@ -1,0 +1,30 @@
+%% Sơ đồ trạng thái lượt mượn v2 (đã cập nhật theo bản cài đặt, chặng 6).
+%% Dùng để: chốt các trạng thái và chuyển trạng thái của luot_muon.trang_thai,
+%% khớp với CHECK trong CSDL: cho_duyet, dang_muon, da_tra, tu_choi.
+%% Chuyển cho_duyet sang dang_muon đi kèm gán ban_sao, ngay_muon và han_tra (+14 ngày) trong transaction.
+%% Quá hạn không phải trạng thái lưu: API tính cờ qua_han = (dang_muon và han_tra < hôm nay), có tab Quá hạn ở trang Quản lý và KPI trên Dashboard.
+stateDiagram-v2
+    direction LR
+    [*] --> cho_duyet : Đăng ký mượn (POST /api/muon)
+
+    state "Chờ duyệt (cho_duyet)" as cho_duyet
+    state "Đang mượn (dang_muon)" as dang_muon
+    state "Đã trả (da_tra)" as da_tra
+    state "Từ chối (tu_choi)" as tu_choi
+
+    cho_duyet --> dang_muon : Thủ thư duyệt, gán bản sao còn rảnh, hạn trả = +14 ngày
+    cho_duyet --> tu_choi : Thủ thư từ chối
+    dang_muon --> da_tra : Thủ thư ghi nhận trả, bản sao về con
+
+    da_tra --> [*]
+    tu_choi --> [*]
+
+    note right of dang_muon
+        Quá hạn (hôm nay lớn hơn han_tra) là cờ qua_han tính khi đọc,
+        không phải trạng thái lưu; hiện ở tab Quá hạn và KPI Dashboard.
+    end note
+
+    note right of cho_duyet
+        Chưa gán ban_sao_id.
+        Chặn đăng ký trùng khi đã có lượt cho_duyet hoặc dang_muon cho cùng tư liệu.
+    end note

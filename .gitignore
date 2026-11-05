@@ -1,0 +1,21 @@
+# Môi trường
+.env
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+node_modules/
+dist/
+# Đầu ra sinh tự động (giữ cấu trúc thư mục)
+outputs/**
+!outputs/README.md
+# Công cụ cục bộ
+.claude/settings.local.json
+# Dữ liệu gốc có họ tên thật: KHÔNG đưa lên repo public (đặt file Excel vào data/ theo README)
+data/*
+!data/README.md
+# Nhật ký, file tạm của Playwright
+test-results/
+playwright-report/
+CLAUDE.md
+.claude/

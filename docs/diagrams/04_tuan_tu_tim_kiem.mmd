@@ -1,0 +1,54 @@
+%% Sơ đồ tuần tự tìm kiếm v2 (cập nhật theo migration 0004: bỏ tầng 2 khớp đủ các từ ghép; thêm tìm chính xác).
+%% Dùng để: mô tả luồng gõ, gợi ý, tìm (khớp cụm liền + sửa lỗi gõ), hiện kết quả cụm đã sửa kèm lối
+%% "Tìm chính xác" (chinh_xac=1), ghi log mỗi lần tìm, rồi ghi tư liệu được chọn.
+%% Log chỉ ghi khi q khác rỗng và trang = 1; trigger log_quy_ve điền tu_khoa_quy_ve.
+%% log_id trả về cùng kết quả tìm để trình duyệt gọi tiếp bước chọn tư liệu.
+%% Khách và người dùng đi cùng luồng; chỉ khác nguoi_dung_id (NULL nếu khách).
+sequenceDiagram
+    autonumber
+    actor U as Người dùng hoặc khách
+    participant FE as Trình duyệt (React SPA)
+    participant API as FastAPI
+    participant DB as PostgreSQL
+
+    U->>FE: Gõ "lu tru" vào ô tìm kiếm
+    Note over FE: Chờ người dùng ngừng gõ (debounce) rồi mới gọi API
+    FE->>API: GET /api/goi-y?q=lu tru
+    API->>DB: tim_tai_lieu(q) lấy 6 tư liệu đầu và từ khóa phổ biến trong log (gộp theo tu_khoa_quy_ve, từ 2 lần tìm trở lên)
+    DB-->>API: Tối đa 6 tư liệu và 5 từ khóa gợi ý
+    API-->>FE: tai_lieu[] và tu_khoa[]
+    FE-->>U: Hiện danh sách gợi ý
+
+    U->>FE: Chọn gợi ý hoặc bấm Tìm
+    FE->>API: GET /api/tim-kiem?q=lu tru&loai=&tu_nam=&den_nam=&trang=1
+    API->>DB: tim_tai_lieu(q): khớp cụm liền (phraseto_tsquery), nếu tối đa 3 kết quả thì sửa lỗi gõ theo từ vựng tiêu đề cum_tu (Levenshtein, fuzzystrmatch) và khớp cụm đã sửa
+    DB-->>API: Kết quả, tổng số, số bản còn rảnh, nhãn có bản mềm, facet loại hình và thập niên
+    API->>DB: SELECT goi_y_sua_cum(q)
+    DB-->>API: Cụm đã sửa hoặc NULL (truy vấn đúng, hoặc không có ứng viên), da_sua = cụm này khi không có chinh_xac
+    API->>DB: Ghi log_tim_kiem (tu_khoa, tu_khoa_chuan, so_ket_qua, nguoi_dung_id hoặc NULL, ma_phien)
+    Note over DB: Trigger log_quy_ve điền tu_khoa_quy_ve (gộp biến thể gõ sai về cụm đúng)
+    DB-->>API: log_id
+    API-->>FE: Kết quả, tổng số, facet, goi_y_sua, da_sua, log_id
+
+    opt Có da_sua (đã tự sửa lỗi gõ)
+        FE-->>U: Dòng "Đang hiện kết quả cho lưu trữ. Tìm chính xác lu tru"
+        U->>FE: Bấm "Tìm chính xác"
+        FE->>API: GET /api/tim-kiem?q=lu tru&chinh_xac=1
+        API->>DB: tim_tai_lieu_chinh_xac(q): chỉ khớp cụm liền nguyên văn, không sửa, ghi log như trên
+        DB-->>API: Kết quả nguyên văn (ít hoặc 0)
+        API-->>FE: da_sua = null, goi_y_sua = lưu trữ
+        FE-->>U: "Có phải bạn muốn tìm lưu trữ?" (bấm để tìm lại bằng cụm đã sửa)
+    end
+
+    alt Có kết quả
+        FE-->>U: Hiện kết quả (tiêu đề, tác giả, loại hình, năm, còn x/y bản)
+        U->>FE: Bấm một tư liệu
+        FE->>API: POST /api/tim-kiem/log_id/chon (tai_lieu_id, keepalive)
+        API->>DB: UPDATE log_tim_kiem SET tai_lieu_chon_id = tai_lieu_id WHERE id = log_id
+        DB-->>API: Số dòng cập nhật
+        API-->>FE: 200
+        FE-->>U: Mở trang chi tiết tư liệu
+    else Không có kết quả
+        FE-->>U: Thông báo không tìm thấy, gợi ý thử từ khác
+        Note over DB: Log vẫn được ghi với so_ket_qua = 0, dùng cho bảng từ khóa 0 kết quả
+    end

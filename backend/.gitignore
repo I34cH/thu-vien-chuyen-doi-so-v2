@@ -1,0 +1,3 @@
+# Bản mềm tải lên khi chạy; chỉ giữ thư mục mau/ (PDF mẫu của dữ liệu mô phỏng)
+storage/ban_mem/*
+!storage/ban_mem/mau/

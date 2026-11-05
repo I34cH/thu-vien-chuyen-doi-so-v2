@@ -1,0 +1,80 @@
+%% Sơ đồ tuần tự mượn v2 (đã cập nhật theo bản cài đặt, chặng 6).
+%% Dùng để: mô tả luồng đăng ký, chờ duyệt, thủ thư duyệt trong transaction có khóa bản sao,
+%% đang mượn, rồi ghi nhận trả. Bản sao chỉ gán khi duyệt, không gán khi đăng ký.
+%% Khi hết bản sao, API trả 409. Phân quyền: yeu_cau_vai_tro trên mọi route.
+sequenceDiagram
+    autonumber
+    actor ND as Người dùng (sinh viên, giảng viên)
+    participant FE as Trình duyệt (React SPA)
+    participant API as FastAPI
+    participant DB as PostgreSQL
+    actor TT as Thủ thư
+
+    rect rgb(248, 242, 242)
+    Note over ND,DB: Giai đoạn 1: đăng ký
+    ND->>FE: Bấm Đăng ký mượn ở trang chi tiết
+    FE->>API: POST /api/muon (tai_lieu_id)
+    API->>API: yeu_cau_vai_tro(nguoi_dung), khách bị 401
+    API->>DB: Kiểm tra tư liệu tồn tại và người này chưa có lượt cho_duyet hoặc dang_muon cho tư liệu đó
+    alt Đã có lượt đang mở cho cùng tư liệu
+        API-->>FE: 409 (đăng ký trùng, hết bản sao hoặc tư liệu không có bản giấy)
+        FE-->>ND: Thông báo đã có lượt mượn đang mở
+    else Chưa có lượt mở
+        API->>DB: INSERT luot_muon (trang_thai = cho_duyet, ban_sao_id = NULL)
+        DB-->>API: id lượt mượn
+        API-->>FE: 201, lượt mượn chờ duyệt
+        FE-->>ND: Đã đăng ký, chờ thủ thư duyệt
+    end
+    end
+
+    rect rgb(248, 242, 242)
+    Note over TT,DB: Giai đoạn 2: chờ duyệt, thủ thư xử lý
+    TT->>FE: Mở trang quản lý, lọc trạng thái cho_duyet
+    FE->>API: GET /api/quan-ly/muon?trang_thai=cho_duyet
+    API->>DB: Đọc lượt mượn chờ duyệt
+    DB-->>API: Danh sách lượt mượn
+    API-->>FE: Danh sách lượt mượn và bộ đếm theo trạng thái (gồm qua_han)
+    FE-->>TT: Hiện danh sách chờ duyệt
+    end
+
+    rect rgb(248, 242, 242)
+    Note over TT,DB: Giai đoạn 3: duyệt trong transaction (khóa bản sao)
+    TT->>FE: Bấm Duyệt
+    FE->>API: POST /api/quan-ly/muon/{id}/duyet
+    API->>DB: BEGIN, SELECT luot_muon FOR UPDATE (phải còn cho_duyet)
+    API->>DB: SELECT ban_sao còn rảnh của tư liệu FOR UPDATE, LIMIT 1
+    alt Còn bản sao rảnh
+        API->>DB: UPDATE ban_sao SET trang_thai = dang_muon
+        API->>DB: UPDATE luot_muon SET trang_thai = dang_muon, ban_sao_id, ngay_muon = hôm nay, han_tra = hôm nay + 14 ngày
+        API->>DB: COMMIT
+        API-->>FE: 200, lượt mượn đang mượn kèm hạn trả
+        FE-->>TT: Dòng chuyển sang đang mượn
+    else Hết bản sao rảnh
+        API->>DB: ROLLBACK
+        API-->>FE: 409, không còn bản sao rảnh
+        FE-->>TT: Thông báo hết bản sao, lượt mượn vẫn chờ duyệt
+    end
+    end
+
+    rect rgb(248, 242, 242)
+    Note over ND,DB: Giai đoạn 4: đang mượn
+    ND->>FE: Mở trang tài khoản
+    FE->>API: GET /api/muon/cua-toi
+    API->>DB: Đọc lượt mượn của người này
+    DB-->>API: Danh sách kèm hạn trả, qua_han = dang_muon và han_tra < hôm nay (tính khi đọc)
+    API-->>FE: Danh sách lượt mượn
+    FE-->>ND: Hiện lượt đang mượn, số ngày còn lại hoặc cảnh báo quá hạn
+    end
+
+    rect rgb(248, 242, 242)
+    Note over TT,DB: Giai đoạn 5: trả
+    TT->>FE: Bấm Ghi nhận trả
+    FE->>API: POST /api/quan-ly/muon/{id}/tra
+    API->>DB: BEGIN, UPDATE luot_muon SET trang_thai = da_tra, ngay_tra = hôm nay
+    API->>DB: UPDATE ban_sao SET trang_thai = con
+    API->>DB: COMMIT
+    API-->>FE: 200
+    FE-->>TT: Dòng chuyển sang đã trả
+    end
+
+    Note over TT,API: Nhánh từ chối: POST /api/quan-ly/muon/{id}/tu-choi, chỉ áp dụng khi còn cho_duyet, lượt chuyển sang tu_choi

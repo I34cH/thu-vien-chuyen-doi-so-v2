@@ -1,0 +1,62 @@
+%% Sơ đồ use case v2 (đã cập nhật theo bản cài đặt, chặng 6), vẽ bằng flowchart vì Mermaid không có use case chuẩn.
+%% Dùng để: liệt kê tác nhân (Khách, Người dùng gồm sinh viên và giảng viên, Thủ thư gộp admin)
+%% và chức năng họ được dùng. Mũi tên nét liền là tác nhân dùng chức năng.
+%% Mũi tên nét chấm là chức năng mở rộng hoặc được gọi bởi chức năng khác.
+flowchart LR
+    KHACH(["Khách (không đăng nhập)"])
+    NGUOI_DUNG(["Người dùng (sinh viên, giảng viên)"])
+    THU_THU(["Thủ thư (gộp admin)"])
+
+    subgraph HE_THONG["Web thư viện chuyển đổi số v2"]
+        UC_TIM["Tìm kiếm có gợi ý khi gõ, không dấu, sai chính tả nhẹ, lọc loại hình và năm"]
+        UC_SUA["Gợi ý sửa lỗi gõ (Có phải bạn muốn tìm ...)"]
+        UC_CHI_TIET["Xem chi tiết tư liệu"]
+        UC_TUONG_TU["Xem tư liệu tương tự"]
+        UC_DOC["Đọc bản mềm (công khai / nội bộ)"]
+        UC_DANG_KY["Đăng ký mượn"]
+        UC_XEM_MUON["Xem lượt mượn của tôi"]
+        UC_DUYET["Duyệt, từ chối lượt mượn (gán bản sao, hạn trả 14 ngày)"]
+        UC_TRA["Ghi nhận trả"]
+        UC_TAI_BAN_MEM["Tải bản mềm (PDF) và chọn mức truy cập"]
+        UC_DASH["Xem dashboard"]
+        UC_LOC["Lọc chéo trên dashboard (7, 30, 90 ngày, loại hình, bấm từ khóa)"]
+        UC_THEME["Xem ThemeRiver chủ đề theo thời gian"]
+        UC_DO_THI["Xem đồ thị tư liệu mượn cùng nhau"]
+        UC_NEN["Xem bảng nên số hóa và điểm lan tỏa"]
+        UC_0KQ["Xem từ khóa tìm nhiều nhưng 0 kết quả"]
+        UC_CHU_DE["Sửa nhãn chủ đề, giải nghĩa mã vấn đề"]
+    end
+
+    KHACH --> UC_TIM
+    KHACH --> UC_CHI_TIET
+    KHACH --> UC_DOC
+
+    NGUOI_DUNG --> UC_TIM
+    NGUOI_DUNG --> UC_CHI_TIET
+    NGUOI_DUNG --> UC_DOC
+    NGUOI_DUNG --> UC_DANG_KY
+    NGUOI_DUNG --> UC_XEM_MUON
+
+    THU_THU --> UC_TIM
+    THU_THU --> UC_CHI_TIET
+    THU_THU --> UC_DUYET
+    THU_THU --> UC_TRA
+    THU_THU --> UC_TAI_BAN_MEM
+    THU_THU --> UC_DASH
+    THU_THU --> UC_LOC
+    THU_THU --> UC_CHU_DE
+
+    UC_CHI_TIET -.->|"bao gồm"| UC_TUONG_TU
+    UC_CHI_TIET -.->|"mở rộng khi có bản mềm"| UC_DOC
+    UC_CHI_TIET -.->|"mở rộng khi người dùng đăng nhập"| UC_DANG_KY
+    UC_DANG_KY -.->|"thủ thư xử lý"| UC_DUYET
+    UC_DUYET -.->|"sau khi đang mượn"| UC_TRA
+    UC_TIM -.->|"bao gồm"| UC_SUA
+    UC_DASH -.->|"bao gồm"| UC_LOC
+    UC_DASH -.->|"bao gồm"| UC_THEME
+    UC_DASH -.->|"bao gồm"| UC_DO_THI
+    UC_DASH -.->|"bao gồm"| UC_NEN
+    UC_DASH -.->|"bao gồm"| UC_0KQ
+    UC_CHU_DE -.->|"nhãn hiện trên"| UC_THEME
+    UC_DOC -.->|"sinh lượt đọc, cộng điểm lan tỏa cho tư liệu tương tự"| UC_NEN
+    UC_TAI_BAN_MEM -.->|"tư liệu rời bảng nên số hóa"| UC_DASH

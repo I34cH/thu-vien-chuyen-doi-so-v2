@@ -1,0 +1,14 @@
+{
+  "name": "thu-vien-e2e",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "test": "playwright test --project=e2e",
+    "chup": "playwright test --project=chup_anh"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.60.0",
+    "@types/node": "^24.0.0"
+  }
+}

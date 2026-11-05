@@ -1,0 +1,81 @@
+%% Sơ đồ tuần tự vòng lặp số hóa v2 (cập nhật công thức lan tỏa: độ tương tự x ln(1 + lượt đọc)).
+%% Dùng để: mô tả vòng khép kín: thủ thư xem bảng nên số hóa (điểm = lượt chọn + 2 x lượt mượn + điểm lan tỏa),
+%% tải bản mềm lên, tư liệu rời bảng, bạn đọc đọc bản mềm (ghi luot_doc), rồi lượt đọc đó cộng điểm lan tỏa
+%% cho các tư liệu tương tự chưa số hóa ở vòng sau.
+%% Điểm lan tỏa của t = tổng (độ tương tự TF-IDF x ln(1 + số lượt đọc)) của các tư liệu s đã có bản mềm mà t nằm
+%% trong danh sách tương tự của s (bảng tai_lieu_tuong_tu). ln(1 + lượt đọc) (quyết định của người dùng) để lan tỏa
+%% chỉ là thành phần phụ: lượt chọn và lượt mượn vẫn quyết định đầu bảng.
+sequenceDiagram
+    autonumber
+    actor TT as Thủ thư
+    participant FE as Dashboard (React SPA)
+    participant API as FastAPI
+    participant DB as PostgreSQL
+    participant FS as Thư mục bản mềm (uploads/)
+    actor BD as Bạn đọc
+    participant PIPE as Pipeline (TF-IDF, chạy khi cần)
+
+    rect rgb(248, 242, 242)
+    Note over TT,DB: Bước 1: thủ thư chọn tư liệu cần số hóa
+    TT->>FE: Mở dashboard, xem bảng Nên số hóa
+    FE->>API: GET /api/thong-ke/nen-so-hoa
+    API->>DB: CTE chon, muon, lan_toa (log_tim_kiem, luot_muon, luot_doc x tai_lieu_tuong_tu), lọc co_ban_mem = false, khong_co_tl = false
+    DB-->>API: Danh sách xếp giảm dần theo diem
+    API-->>FE: tai_lieu, so_lan_chon, so_luot_muon, diem_lan_toa, diem, lan_toa_tu (top 3 nguồn)
+    FE-->>TT: Bảng nên số hóa, bấm dấu hỏi ở cột Lan tỏa để xem tư liệu nguồn
+    end
+
+    rect rgb(248, 242, 242)
+    Note over TT,FS: Bước 2: tải bản mềm lên
+    TT->>FE: Chọn tư liệu, chọn tệp PDF và mức truy cập (cong_khai hoặc noi_bo)
+    FE->>API: POST /api/quan-ly/tai-lieu/{id}/ban-mem (multipart: PDF, muc_truy_cap)
+    API->>API: yeu_cau_vai_tro(thu_thu), kiểm tra chữ ký %PDF và kích thước <= 20 MB
+    API->>FS: Ghi tệp PDF
+    FS-->>API: Đường dẫn lưu tệp
+    API->>DB: UPDATE tai_lieu SET co_ban_mem = true, duong_dan_ban_mem, muc_truy_cap
+    DB-->>API: OK
+    API-->>FE: 200
+    end
+
+    rect rgb(248, 242, 242)
+    Note over TT,DB: Bước 3: tư liệu rời bảng nên số hóa
+    FE->>API: GET /api/thong-ke/nen-so-hoa (làm mới)
+    API->>DB: Truy vấn nên số hóa như trên
+    DB-->>API: Không còn tư liệu vừa số hóa (co_ban_mem = true)
+    API-->>FE: Danh sách mới
+    FE-->>TT: Tư liệu vừa số hóa biến mất khỏi bảng
+    end
+
+    rect rgb(248, 242, 242)
+    Note over BD,FS: Bước 4: bạn đọc đọc bản mềm, ghi lượt đọc
+    BD->>FE: Mở trang chi tiết tư liệu có bản mềm
+    FE->>API: GET /api/tai-lieu/{id}/ban-mem
+    alt muc_truy_cap = cong_khai
+        API->>DB: INSERT luot_doc (tai_lieu_id, nguoi_dung_id hoặc NULL, ma_phien, thoi_diem, du_lieu_mau)
+        API->>FS: Đọc tệp PDF
+        FS-->>API: Nội dung PDF
+        API-->>FE: PDF để xem trong trình duyệt
+    else muc_truy_cap = noi_bo
+        alt Đã đăng nhập (người dùng hoặc thủ thư)
+            API->>DB: INSERT luot_doc
+            API->>FS: Đọc tệp PDF
+            FS-->>API: Nội dung PDF
+            API-->>FE: PDF
+        else Khách
+            API-->>FE: 401, yêu cầu đăng nhập
+        end
+    end
+    end
+
+    rect rgb(248, 242, 242)
+    Note over BD,DB: Bước 5: lượt đọc cộng điểm lan tỏa cho vòng sau
+    TT->>FE: Mở dashboard vòng sau
+    FE->>API: GET /api/thong-ke/nen-so-hoa và /api/thong-ke/luot-doc
+    API->>DB: diem_lan_toa(t) = tổng (diem_tuong_tu(s, t) x ln(1 + số lượt đọc của s)) với s đã có bản mềm
+    DB-->>API: Tư liệu chưa số hóa giống bản mềm được đọc nhiều được cộng thêm (tăng chậm dần theo lượt đọc)
+    API-->>FE: Bảng nên số hóa đã cập nhật, kèm nguồn lan tỏa
+    FE-->>TT: Dữ liệu từ bản mềm vừa số hóa chảy ngược về quyết định số hóa tiếp theo
+    end
+
+    Note over PIPE,DB: tai_lieu_tuong_tu do pipeline (TF-IDF, scikit-learn) tính khi dựng dữ liệu (pipeline.reset hoặc pipeline.tuong_tu), không tính lại mỗi lần đọc.
+    Note over PIPE,DB: Bỏ cặp trùng tiêu đề (cùng tác phẩm nhập ở hai sheet), vì bản kia đã có bản mềm không phải lan tỏa.
