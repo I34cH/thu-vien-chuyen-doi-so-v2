@@ -6,9 +6,22 @@ __pycache__/
 .pytest_cache/
 node_modules/
 dist/
-# Đầu ra sinh tự động (giữ cấu trúc thư mục)
-outputs/**
+# Đầu ra sinh tự động: chỉ commit ảnh chụp, sơ đồ và báo cáo chính thức (bỏ log tạm và file có tên thật)
+outputs/*
 !outputs/README.md
+!outputs/diagrams/
+!outputs/screenshots/
+!outputs/reports/
+outputs/reports/*
+!outputs/reports/chang4_tom_tat.md
+!outputs/reports/chu_de.md
+!outputs/reports/danh_gia_tim_kiem_truoc.md
+!outputs/reports/danh_gia_tim_kiem_sau.md
+!outputs/reports/danh_gia_tim_kiem_so_sanh.md
+!outputs/reports/etl_tom_tat.csv
+!outputs/reports/lan_toa_truoc_sau.md
+!outputs/reports/seed_tom_tat.md
+!outputs/reports/zipf.png
 # Công cụ cục bộ
 .claude/settings.local.json
 # Dữ liệu gốc có họ tên thật: KHÔNG đưa lên repo public (đặt file Excel vào data/ theo README)
@@ -19,3 +32,4 @@ test-results/
 playwright-report/
 CLAUDE.md
 .claude/
+Bao_cao/

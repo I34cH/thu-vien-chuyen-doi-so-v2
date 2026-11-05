@@ -9,7 +9,7 @@ bạn đọc tìm, mượn  →  ghi log  →  dashboard thủ thư  →  số h
 Danh mục tư liệu là **dữ liệu thật** (3.400 tư liệu của Khoa, từ `data/[Bản chuẩn] DANH MỤC TƯ LIỆU KHOA.xlsx`). Log tìm kiếm, lượt mượn, lượt đọc và người dùng là **dữ liệu mô phỏng** (cờ `du_lieu_mau = true`, `seed = 42`), chỉ để trình diễn. Dashboard chỉ hiện số tổng hợp, không hiện ai tìm gì.
 
 ## Hình minh họa
-Ảnh nằm trong `outputs/screenshots/` và `outputs/diagrams/` (sinh bằng `scripts/kiem_tra_toan_bo.*`, không commit). Họ tên tác giả và người hướng dẫn thật đã được làm mờ.
+Ảnh nằm trong `outputs/screenshots/` và `outputs/diagrams/` (sinh bằng `scripts/kiem_tra_toan_bo.*`). Họ tên tác giả và người hướng dẫn thật đã được làm mờ.
 
 | | |
 |---|---|
@@ -32,7 +32,7 @@ CK_v2/
 ├── scripts/     kiem_tra_toan_bo.ps1|.sh (kiểm tra một lệnh), chay_dev.ps1 (bật dev)
 ├── docs/        KE_HOACH.md, API.md (hợp đồng API), TIEN_DO.md, diagrams/*.mmd
 ├── data/        Excel danh mục gốc (chỉ đọc)
-├── outputs/     Đầu ra sinh tự động: reports/, screenshots/, diagrams/, exports/ (không commit)
+├── outputs/     Đầu ra sinh tự động: reports/, screenshots/, diagrams/, exports/
 └── .env.example
 ```
 

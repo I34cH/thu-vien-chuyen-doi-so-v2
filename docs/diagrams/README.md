@@ -1,6 +1,6 @@
 # Sơ đồ thiết kế hệ thống v2 (đã cập nhật theo bản cài đặt, chặng 6)
 
-Các file `.mmd` là nguồn (Mermaid). Ảnh SVG và PNG xuất ra `outputs/diagrams/` (không commit). Xuất lại bằng:
+Các file `.mmd` là nguồn (Mermaid). Ảnh SVG và PNG xuất ra `outputs/diagrams/`. Xuất lại bằng:
 
 ```
 npx -y @mermaid-js/mermaid-cli@11 -i docs/diagrams/<tên>.mmd -o outputs/diagrams/<tên>.svg -b white -s 2
